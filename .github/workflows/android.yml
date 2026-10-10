@@ -18,6 +18,11 @@ jobs:
           mkdir -p "$HOME/.local/share/godot/export_templates/4.2.2.stable"
           unzip -q Godot_v4.2.2-stable_export_templates.tpz
           mv templates/* "$HOME/.local/share/godot/export_templates/4.2.2.stable/"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
       - name: Create debug keystore
         run: |
           mkdir -p "$HOME/.android"
@@ -33,11 +38,20 @@ jobs:
           export/android/debug_keystore = "/home/runner/.android/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
+          export/android/java_sdk_path = "/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17"
           EOF
       - name: Import project
         run: godot --headless --path . --editor --quit
       - name: Export APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          echo "JAVA_HOME=$JAVA_HOME ANDROID_HOME=$ANDROID_HOME"
+          ls -l "$HOME/.android/debug.keystore"
+          sed -i "s|/usr/local/lib/android/sdk|$ANDROID_HOME|g" "$HOME/.config/godot/editor_settings-4.tres"
+          sed -i "s|/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17|$JAVA_HOME|g" "$HOME/.config/godot/editor_settings-4.tres"
           mkdir -p build
           godot --headless --path . --export-debug Android build/CubeRunner3D.apk
           test -s build/CubeRunner3D.apk
