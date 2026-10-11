@@ -25,7 +25,7 @@ jobs:
       - name: Install required Android SDK components
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "build-tools;33.0.2" "platforms;android-33"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "build-tools;33.0.2" "platforms;android-33" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
       - name: Create debug keystore
         run: |
           mkdir -p "$HOME/.android"
@@ -58,7 +58,7 @@ jobs:
           echo "JAVA_HOME=$JAVA_HOME ANDROID_HOME=$ANDROID_HOME"
           ls -l "$HOME/.android/debug.keystore"
           mkdir -p build
-          godot --headless --path . --export-debug Android build/CubeRunner3D.apk
+          godot --headless --verbose --path . --export-debug Android build/CubeRunner3D.apk
           test -s build/CubeRunner3D.apk
       - uses: actions/upload-artifact@v4
         with:
