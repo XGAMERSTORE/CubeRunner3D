@@ -49,6 +49,19 @@ jobs:
           sed -i "s|/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17|$JAVA_HOME|g" "$HOME/.config/godot/editor_settings-4.tres"
       - name: Import project
         run: godot --headless --path . --editor --quit
+      - name: Diagnose Android export configuration
+        run: |
+          cat > /tmp/check_export.gd <<'EOF'
+          extends SceneTree
+          func _initialize():
+              print("SDK=", EditorInterface.get_editor_settings().get_setting("export/android/android_sdk_path"))
+              print("JAVA=", EditorInterface.get_editor_settings().get_setting("export/android/java_sdk_path"))
+              print("KEY=", EditorInterface.get_editor_settings().get_setting("export/android/debug_keystore"))
+              quit()
+          EOF
+          godot --headless --editor --path . --script /tmp/check_export.gd || true
+          ls -la "$ANDROID_HOME/build-tools/33.0.2" | head
+          ls -la "$HOME/.local/share/godot/export_templates/4.2.2.stable" | head
       - name: Export APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
