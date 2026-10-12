@@ -11,25 +11,52 @@ jobs:
       image: barichello/godot-ci:4.2.2
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare Android SDK and signing
+      - name: Install matching Godot 4.2.2 Android export templates
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p build /root/.local/share/godot/export_templates
-          echo "ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/opt/android-sdk}}" >> "$GITHUB_ENV"
-          if [ ! -f /root/.local/share/godot/export_templates/4.2.2.stable/android_debug.apk ]; then
-            find / -path '*/4.2.2.stable/android_debug.apk' -print 2>/dev/null | head -5
+          mkdir -p build /root/.local/share/godot/export_templates/4.2.2.stable
+          curl -fL --retry 3 -o /tmp/templates.tpz https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
+          python3 - <<'PY'
+          import zipfile, pathlib
+          target=pathlib.Path('/root/.local/share/godot/export_templates/4.2.2.stable')
+          with zipfile.ZipFile('/tmp/templates.tpz') as z:
+              for name in ('android_debug.apk','android_release.apk'):
+                  with z.open('templates/'+name) as source, (target/name).open('wb') as dest:
+                      import shutil
+                      shutil.copyfileobj(source,dest)
+          PY
+          test -s /root/.local/share/godot/export_templates/4.2.2.stable/android_debug.apk
+      - name: Configure Android SDK and Java
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/android-sdk}}"
+          if [ ! -d "$SDK" ]; then
+            for candidate in /usr/lib/android-sdk /opt/android-sdk /usr/local/lib/android/sdk; do
+              if [ -d "$candidate" ]; then SDK="$candidate"; break; fi
+            done
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          if [ -d /usr/lib/jvm/java-17-openjdk-amd64 ]; then
+            echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+          fi
+          SDKMANAGER="$(find "$SDK" -type f -name sdkmanager -print -quit)"
+          if [ -n "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null || true
+            "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           fi
           keytool -genkeypair -v -keystore /tmp/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=/tmp/debug.keystore" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
-      - name: Import and validate
+      - name: Import game
         run: godot --headless --editor --path . --quit
       - name: Export debug APK
+        shell: bash
         run: |
-          set -eux
+          set -euxo pipefail
           godot --headless --path . --export-debug Android build/CubeRunner3D.apk
           test -s build/CubeRunner3D.apk
       - name: Upload APK
