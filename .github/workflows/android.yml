@@ -57,6 +57,18 @@ jobs:
             "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           fi
           test -d "$SDK/build-tools/33.0.2" || { echo "Android Build Tools 33.0.2 missing"; exit 1; }
+          # Godot reads Android SDK/JDK locations from editor settings, not only environment variables.
+          GODOT_SETTINGS=/github/home/.config/godot/editor_settings-4.tres
+          cat > "$GODOT_SETTINGS" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
           keytool -genkeypair -v -keystore /tmp/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=/tmp/debug.keystore" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
